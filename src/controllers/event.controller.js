@@ -2,18 +2,15 @@ const { StatusCodes } = require('http-status-codes');
 const Consumer = require('../models/consumer.model');
 const Event = require('../models/event.model');
 const { msg } = require('../constant');
-const { sendErrorResponse } = require('../utils');
+const { sendErrorResponse, notFoundItem, pagination, cache } = require('../utils');
 
 /* create event */
 const createEvent = async (req, res) => {
   try {
     const { eventName, eventDate, totalAmount, initialPaid, consumerId } = req.body;
-    const findConsumer = await Consumer.findById(consumerId);
+    const findConsumer = await Consumer.findById(consumerId).lean();
     if (!findConsumer) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        status: StatusCodes.NOT_FOUND,
-        message: 'Consumer not found.',
-      });
+      return notFoundItem(res, msg.consumerMsg.consumerNotFound);
     }
 
     const newEvent = new Event({
@@ -22,50 +19,73 @@ const createEvent = async (req, res) => {
       totalAmount,
       initialPaid,
       consumerId,
-      consumer: { ...findConsumer.toObject() },
+      consumer: findConsumer,
     });
 
     await newEvent.save();
+
+    // Invalidate cached events
+    await cache.delPattern('cache:events:*');
+
     return res.status(StatusCodes.OK).json({
       status: StatusCodes.OK,
       event: newEvent,
-      message: msg.categoryMsg.newCategoryCreated,
+      message: msg.eventMsg.newEventCreated,
     });
   } catch (error) {
     return sendErrorResponse(res, error);
   }
 };
 
-/* list of event */
+/* list of events with pagination and cache */
 const getAllEvents = async (req, res) => {
   try {
-    const allEvents = await Event.find();
-    return res.status(StatusCodes.OK).json({
+    const { page, limit, skip } = pagination.getPaginationParams(req.query, 50, 100);
+    const cacheKey = `cache:events:page=${page}:limit=${limit}`;
+
+    const cachedData = await cache.get(cacheKey);
+    if (cachedData) {
+      return res.status(StatusCodes.OK).json(cachedData);
+    }
+
+    const [allEvents, total] = await Promise.all([
+      Event.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Event.countDocuments(),
+    ]);
+
+    const responsePayload = {
       status: StatusCodes.OK,
       event: allEvents,
-      message: msg.categoryMsg.newCategoryCreated,
-    });
+      message: msg.eventMsg.eventListRetrieved,
+      pagination: pagination.getPaginationMetadata(total, page, limit),
+    };
+
+    await cache.set(cacheKey, responsePayload, 60);
+
+    return res.status(StatusCodes.OK).json(responsePayload);
   } catch (error) {
     return sendErrorResponse(res, error);
   }
 };
 
-/* get event */
+/* get events by consumer id */
 const getEvent = async (req, res) => {
   try {
     const consumerId = req.params.id;
-    const eventItem = await Event.find({ consumerId });
-    if (!eventItem) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        status: StatusCodes.NOT_FOUND,
-        message: 'Event not found for this consumer.',
-      });
+    const eventItems = await Event.find({ consumerId }).sort({ createdAt: -1 }).lean();
+
+    if (!eventItems || eventItems.length === 0) {
+      return notFoundItem(res, msg.eventMsg.eventNotFound);
     }
 
     return res.status(StatusCodes.OK).json({
       status: StatusCodes.OK,
-      event: eventItem,
-      message: msg.categoryMsg.newCategoryCreated,
+      event: eventItems,
+      message: msg.eventMsg.eventListRetrieved,
     });
   } catch (error) {
     return sendErrorResponse(res, error);

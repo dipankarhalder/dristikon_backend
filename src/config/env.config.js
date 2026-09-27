@@ -17,6 +17,9 @@ module.exports = {
   REFRESH_TOKEN_SECRET:
     process.env.REFRESH_TOKEN_SECRET || 'dristikon_refresh_token_secret_key_2026',
   REFRESH_TOKEN_EXPTIME: process.env.REFRESH_TOKEN_EXPTIME || '7d',
+  REDIS_HOST: process.env.REDIS_HOST || '',
+  REDIS_PORT: parseInt(process.env.REDIS_PORT, 10) || 6379,
+  REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
   NODEENV: isProduction,
   CLIENTURL: process.env.CLIENTURL || 'http://localhost:5173',
 };
