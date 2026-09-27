@@ -2,13 +2,15 @@ const { StatusCodes } = require('http-status-codes');
 const User = require('../models/user.model');
 const { msg } = require('../constant');
 const { authValidate } = require('../validation');
-const { validateFields, sendErrorResponse, notFoundItem } = require('../utils');
+const { validateFields, sendErrorResponse, notFoundItem, pagination } = require('../utils');
 
 /* user profile */
 const getProfile = async (req, res) => {
   try {
     const decoded = req.user;
-    const user = await User.findById(decoded.userid).select('-password -refreshToken');
+    const user = await User.findById(decoded.userid)
+      .select('-password -refreshToken')
+      .lean();
     if (!user) {
       return notFoundItem(res, msg.userMsg.userNotFound);
     }
@@ -21,17 +23,28 @@ const getProfile = async (req, res) => {
   }
 };
 
-/* user profile lists */
+/* user profile lists with role filter and pagination */
 const getProfileLists = async (req, res) => {
   try {
     const role = req.query.role;
-    const userList =
-      role === 'all'
-        ? await User.find().select('-password -refreshToken').sort({ _id: -1 })
-        : await User.find({ role }).select('-password -refreshToken').sort({ _id: -1 });
+    const filter = role && role !== 'all' ? { role } : {};
+
+    const { page, limit, skip } = pagination.getPaginationParams(req.query, 50, 100);
+
+    const [userList, total] = await Promise.all([
+      User.find(filter)
+        .select('-password -refreshToken')
+        .sort({ _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(filter),
+    ]);
+
     return res.status(StatusCodes.OK).json({
       status: StatusCodes.OK,
       data: userList,
+      pagination: pagination.getPaginationMetadata(total, page, limit),
     });
   } catch (error) {
     return sendErrorResponse(res, error);

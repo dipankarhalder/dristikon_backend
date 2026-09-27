@@ -4,7 +4,7 @@ const User = require('../models/user.model');
 const Category = require('../models/category.model');
 const { msg } = require('../constant');
 const { categoryValidate } = require('../validation');
-const { validateFields, sendErrorResponse, notFoundItem } = require('../utils');
+const { validateFields, sendErrorResponse, notFoundItem, pagination, cache } = require('../utils');
 
 /* create category */
 const createCategory = async (req, res) => {
@@ -25,7 +25,7 @@ const createCategory = async (req, res) => {
       return validateFields(res, msg.categoryMsg.categoryAlreadyExist);
     }
 
-    const user = await User.findById(decoded.userid).select('-password');
+    const user = await User.findById(decoded.userid).select('-password -refreshToken').lean();
     const newCategory = new Category({
       categoryName,
       description,
@@ -33,6 +33,10 @@ const createCategory = async (req, res) => {
     });
 
     await newCategory.save();
+
+    // Invalidate cached categories
+    await cache.delPattern('cache:categories:*');
+
     return res.status(StatusCodes.OK).json({
       status: StatusCodes.OK,
       category: newCategory,
@@ -43,14 +47,35 @@ const createCategory = async (req, res) => {
   }
 };
 
-/* list of categories */
+/* list of categories with pagination and cache */
 const listCategories = async (req, res) => {
   try {
-    const categories = await Category.find();
-    return res.status(StatusCodes.OK).json({
+    const { page, limit, skip } = pagination.getPaginationParams(req.query, 50, 100);
+    const cacheKey = `cache:categories:page=${page}:limit=${limit}`;
+
+    const cachedData = await cache.get(cacheKey);
+    if (cachedData) {
+      return res.status(StatusCodes.OK).json(cachedData);
+    }
+
+    const [categories, total] = await Promise.all([
+      Category.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Category.countDocuments(),
+    ]);
+
+    const responsePayload = {
       status: StatusCodes.OK,
       list: categories,
-    });
+      pagination: pagination.getPaginationMetadata(total, page, limit),
+    };
+
+    await cache.set(cacheKey, responsePayload, 180);
+
+    return res.status(StatusCodes.OK).json(responsePayload);
   } catch (error) {
     return sendErrorResponse(res, error);
   }
@@ -60,7 +85,10 @@ const listCategories = async (req, res) => {
 const getCategory = async (req, res) => {
   try {
     const categoryId = req.params.id;
-    const categoryDetails = await Category.findById(categoryId);
+    const categoryDetails = await Category.findById(categoryId).lean();
+    if (!categoryDetails) {
+      return notFoundItem(res, msg.categoryMsg.categoryNotFound);
+    }
     return res.status(StatusCodes.OK).json({
       status: StatusCodes.OK,
       details: categoryDetails,
@@ -74,11 +102,14 @@ const getCategory = async (req, res) => {
 const deleteCategory = async (req, res) => {
   try {
     const categoryId = req.params.id;
-    const category = await Category.findById(categoryId);
+    const category = await Category.findByIdAndDelete(categoryId);
     if (!category) {
       return notFoundItem(res, msg.categoryMsg.categoryNotFound);
     }
-    await Category.findByIdAndDelete(categoryId);
+
+    // Invalidate cached categories
+    await cache.delPattern('cache:categories:*');
+
     return res.status(StatusCodes.OK).json({
       status: StatusCodes.OK,
       message: msg.categoryMsg.categoryDeleted,

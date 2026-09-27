@@ -1,5 +1,7 @@
 const { StatusCodes } = require('http-status-codes');
 const { msg } = require('../constant');
+const pagination = require('./pagination');
+const cache = require('./cache');
 
 const sendErrorResponse = (res, error) => {
   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
@@ -27,4 +29,6 @@ module.exports = {
   sendErrorResponse,
   validateFields,
   notFoundItem,
+  pagination,
+  cache,
 };
