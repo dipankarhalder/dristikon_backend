@@ -34,10 +34,19 @@ const ConsumerSchema = new mongoose.Schema(
         type: String,
       },
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
   },
   {
     timestamps: true,
   },
 );
+
+/* performance indexes */
+ConsumerSchema.index({ phone: 1 });
+ConsumerSchema.index({ createdAt: -1 });
+ConsumerSchema.index({ user: 1 });
 
 module.exports = mongoose.model('Consumer', ConsumerSchema);

@@ -74,6 +74,19 @@ const consumerMsg = {
   consumerUpdated: 'Consumer updated successfully.',
 };
 
+const eventMsg = {
+  newEventCreated: 'New event created successfully.',
+  eventNotFound: 'Event not found.',
+  eventListRetrieved: 'Event list retrieved successfully.',
+};
+
+const transactionMsg = {
+  newTransactionCreated: 'Transaction recorded successfully.',
+  transactionNotFound: 'Transaction not found.',
+  transactionListRetrieved: 'Transaction list retrieved successfully.',
+  amountExceeds: 'Paid amount cannot exceed the pending event balance.',
+};
+
 module.exports = {
   server,
   dbMsg,
@@ -82,4 +95,6 @@ module.exports = {
   userMsg,
   categoryMsg,
   consumerMsg,
+  eventMsg,
+  transactionMsg,
 };

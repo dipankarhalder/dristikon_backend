@@ -1,6 +1,28 @@
 # CRM Backend (Dristikon)
 
-Node.js, Express, and MongoDB backend API for the Dristikon CRM platform.
+High-performance, secure, and scalable Node.js, Express, MongoDB, and Redis backend API for the Dristikon CRM platform.
+
+---
+
+## ⚡ Architecture & Performance Features
+
+- **🛡️ Security & Hardening**:
+  - `helmet` HTTP protection (CSP, HSTS, X-Content-Type-Options, hides `X-Powered-By`).
+  - Rate limiting via `express-rate-limit` (strict limits on `/auth` to prevent brute force; general protection on `/api`).
+  - Request body payload size caps (`50kb`) preventing memory exhaustion attacks.
+  - Dual-token authentication (`accessToken` 15m + `refreshToken` 7d with revocation and token rotation).
+- **🚀 High Throughput & Low Latency**:
+  - `compression` middleware with automatic Gzip/Brotli payload compression.
+  - `.lean()` unhydrated Mongoose queries for 3x–5x read acceleration.
+  - Redis distributed caching with automatic cache invalidation on data mutation.
+  - Standardized pagination on all collection endpoints (`?page=1&limit=50`).
+- **🗄️ Database Optimization**:
+  - Mongoose connection pooling (`maxPoolSize: 50`, `minPoolSize: 10`).
+  - Indexes on all foreign keys, lookup fields, and timestamps (`consumerId`, `eventId`, `createdAt`, `role`).
+  - Concurrency-safe atomic updates (`$inc`, `$gte`) preventing payment race conditions.
+- **🔄 Resilience & Lifecycle**:
+  - Graceful shutdown handlers for `SIGTERM` and `SIGINT` (drains HTTP requests, cleanly closes MongoDB & Redis connections).
+  - Resilient Redis failover: if Redis is offline, requests seamlessly bypass to MongoDB without downtime.
 
 ---
 
@@ -9,13 +31,14 @@ Node.js, Express, and MongoDB backend API for the Dristikon CRM platform.
 ### Prerequisites
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
 
-### 1. Start Services (Backend + MongoDB)
+### 1. Start All Services (Backend + MongoDB + Redis)
 From the project root or `dristikon_backend` directory, run:
 ```bash
 docker compose up -d --build
 ```
 This starts:
 - **MongoDB** on `localhost:27017` (with persistent volume `mongo_data`)
+- **Redis** on `localhost:6381` (with persistent volume `redis_data`)
 - **Backend API** on `http://localhost:4000` (with live code reloading on edits)
 
 ### 2. Check Service Status
@@ -31,6 +54,9 @@ docker compose logs -f
 # Backend only
 docker compose logs -f backend
 
+# Redis only
+docker compose logs -f redis
+
 # MongoDB only
 docker compose logs -f mongo
 ```
@@ -38,10 +64,6 @@ docker compose logs -f mongo
 ### 4. Verify Health Endpoint
 ```bash
 curl http://localhost:4000/api/v1/health
-```
-Response:
-```json
-{"status":200,"msg":"API health good, working as expected."}
 ```
 
 ### 5. Stop Services
@@ -57,14 +79,12 @@ docker compose down -v
 
 ## 💻 Running Locally (Without Docker Backend)
 
-If you wish to run MongoDB in Docker and the backend directly on your host machine:
-
-1. Start only MongoDB:
+1. Start MongoDB and Redis:
    ```bash
-   docker compose up -d mongo
+   docker compose up -d mongo redis
    ```
 2. Configure `.env`:
-   Ensure `MONGOURI` is set to `mongodb://localhost:27017/dristikon_db`.
+   Set `MONGOURI=mongodb://localhost:27017/dristikon_db` and `REDIS_HOST=localhost`, `REDIS_PORT=6381`.
 3. Install dependencies:
    ```bash
    npm install
@@ -76,26 +96,14 @@ If you wish to run MongoDB in Docker and the backend directly on your host machi
 
 ---
 
-## 📦 Updating npm Packages
-
-- **Safe update (minor/patch releases within current ranges)**:
-  ```bash
-  npm update
-  ```
-- **Major version upgrades (e.g. Express 5, Mongoose 9)**:
-  ```bash
-  npx npm-check-updates -u
-  npm install
-  ```
-
----
-
 ## ⚙️ Environment Variables (`.env`)
 
 | Variable | Description | Default in Docker | Default on Host |
 | :--- | :--- | :--- | :--- |
 | `PORT` | HTTP server port | `4000` | `4000` |
 | `MONGOURI` | MongoDB connection URI | `mongodb://mongo:27017/dristikon_db` | `mongodb://localhost:27017/dristikon_db` |
+| `REDIS_HOST` | Redis cache hostname | `redis` | `localhost` |
+| `REDIS_PORT` | Redis cache port | `6379` | `6381` |
 | `PLATFORM` | Morgan logger format | `dev` | `dev` |
 | `NODEENV` | Node environment | `development` | `development` |
 | `ACCESS_TOKEN_SECRET` | Secret key for access token | `dristikon_access_token_secret_key_2026` | `dristikon_access_token_secret_key_2026` |
@@ -108,34 +116,41 @@ If you wish to run MongoDB in Docker and the backend directly on your host machi
 
 ## 📡 API Endpoints Overview
 
-- **Health Check**: `GET /api/v1/health`
-- **Auth**:
-  - `POST /api/v1/auth/signup`
-  - `POST /api/v1/auth/signin` (Returns `accessToken`, `refreshToken`, and `token`)
-  - `POST /api/v1/auth/refresh` (Refreshes and rotates `accessToken` and `refreshToken`)
-  - `POST /api/v1/auth/signout`
-- **Profile**:
-  - `GET /api/v1/profile/me`
-  - `GET /api/v1/profile`
-  - `POST /api/v1/profile/new`
-  - `PATCH /api/v1/profile/update-password`
-  - `PATCH /api/v1/profile/update-profile`
-- **Consumers**:
-  - `POST /api/v1/consumer/new`
-  - `GET /api/v1/consumer/list`
-  - `GET /api/v1/consumer/:id`
-  - `PATCH /api/v1/consumer/:id`
-  - `DELETE /api/v1/consumer/:id`
-- **Categories**:
-  - `POST /api/v1/category/new`
-  - `GET /api/v1/category/list`
-  - `GET /api/v1/category/:id`
-  - `DELETE /api/v1/category/:id`
-- **Transactions**:
-  - `POST /api/v1/transaction/new`
-  - `GET /api/v1/transaction/list`
-  - `GET /api/v1/transaction/:id`
-- **Events**:
-  - `POST /api/v1/event/new`
-  - `GET /api/v1/event/list`
-  - `GET /api/v1/event/:id`
+### Health
+- `GET /api/v1/health`
+
+### Authentication (Rate Limited)
+- `POST /api/v1/auth/signup`
+- `POST /api/v1/auth/signin`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/signout`
+
+### Profile
+- `GET /api/v1/profile/me`
+- `GET /api/v1/profile?role=all&page=1&limit=20`
+- `POST /api/v1/profile/new`
+- `PATCH /api/v1/profile/update-password`
+- `PATCH /api/v1/profile/update-profile`
+
+### Consumers (Cached & Paginated)
+- `POST /api/v1/consumer/new`
+- `GET /api/v1/consumer/list?page=1&limit=50`
+- `GET /api/v1/consumer/:id`
+- `PATCH /api/v1/consumer/:id`
+- `DELETE /api/v1/consumer/:id`
+
+### Categories (Cached & Paginated)
+- `POST /api/v1/category/new`
+- `GET /api/v1/category/list?page=1&limit=50`
+- `GET /api/v1/category/:id`
+- `DELETE /api/v1/category/:id`
+
+### Transactions (Atomic Decrement & Paginated)
+- `POST /api/v1/transaction/new`
+- `GET /api/v1/transaction/list?page=1&limit=50`
+- `GET /api/v1/transaction/:id`
+
+### Events (Cached & Paginated)
+- `POST /api/v1/event/new`
+- `GET /api/v1/event/list?page=1&limit=50`
+- `GET /api/v1/event/:id`

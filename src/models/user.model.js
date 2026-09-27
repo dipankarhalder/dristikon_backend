@@ -110,4 +110,8 @@ UserSchema.methods.generateAuthToken = function () {
   return this.generateAccessToken();
 };
 
+/* performance indexes */
+UserSchema.index({ role: 1 });
+UserSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('User', UserSchema);
