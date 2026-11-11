@@ -1,6 +1,10 @@
 const Joi = require('joi');
 const { msg } = require('../constant');
 
+const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
+const PASSWORD_COMPLEXITY_MSG =
+  'Password must be at least 6 characters and contain at least 1 uppercase, 1 lowercase, 1 number, and 1 special character (@$!%*?&).';
+
 const userInfoSchema = Joi.object({
   name: Joi.string().required().messages({
     'string.empty': msg.userMsg.requireName,
@@ -9,9 +13,10 @@ const userInfoSchema = Joi.object({
     'string.empty': msg.userMsg.requireEmail,
     'string.email': msg.userMsg.validateUserEmail,
   }),
-  password: Joi.string().min(6).required().messages({
+  password: Joi.string().min(6).pattern(PASSWORD_PATTERN).required().messages({
     'string.empty': msg.userMsg.requirePassword,
     'string.min': msg.userMsg.minimumPassword,
+    'string.pattern.base': PASSWORD_COMPLEXITY_MSG,
   }),
   phone: Joi.string().min(10).required().messages({
     'string.empty': msg.userMsg.requirePhone,
@@ -38,9 +43,10 @@ const passwordSchema = Joi.object({
     'string.empty': msg.userMsg.requireOldPassword,
     'string.min': msg.userMsg.oldMinimumPassword,
   }),
-  newPassword: Joi.string().min(6).required().not(Joi.ref('oldPassword')).messages({
+  newPassword: Joi.string().min(6).pattern(PASSWORD_PATTERN).required().not(Joi.ref('oldPassword')).messages({
     'string.empty': msg.userMsg.requireNewPassword,
     'string.min': msg.userMsg.newMinimumPassword,
+    'string.pattern.base': PASSWORD_COMPLEXITY_MSG,
     'any.only': msg.userMsg.compareBothPassword,
   }),
 });

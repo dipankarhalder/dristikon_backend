@@ -8,9 +8,7 @@ const { validateFields, sendErrorResponse, notFoundItem, pagination } = require(
 const getProfile = async (req, res) => {
   try {
     const decoded = req.user;
-    const user = await User.findById(decoded.userid)
-      .select('-password -refreshToken')
-      .lean();
+    const user = await User.findById(decoded.userid).select('-password -refreshToken').lean();
     if (!user) {
       return notFoundItem(res, msg.userMsg.userNotFound);
     }
@@ -32,12 +30,7 @@ const getProfileLists = async (req, res) => {
     const { page, limit, skip } = pagination.getPaginationParams(req.query, 50, 100);
 
     const [userList, total] = await Promise.all([
-      User.find(filter)
-        .select('-password -refreshToken')
-        .sort({ _id: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      User.find(filter).select('-password -refreshToken').sort({ _id: -1 }).skip(skip).limit(limit).lean(),
       User.countDocuments(filter),
     ]);
 

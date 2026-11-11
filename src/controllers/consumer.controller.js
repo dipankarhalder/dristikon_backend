@@ -22,6 +22,9 @@ const createConsumer = async (req, res) => {
       return validateFields(res, msg.consumerMsg.consumerAlreadyExist);
     }
     const user = await User.findById(decoded.userid).select('-password -refreshToken').lean();
+    if (!user) {
+      return notFoundItem(res, msg.userMsg.userNotFound);
+    }
     const newConsumer = new Consumer({
       name: value.name,
       email: value.email,
@@ -62,11 +65,7 @@ const listConsumers = async (req, res) => {
     }
 
     const [consumers, total] = await Promise.all([
-      Consumer.find()
-        .sort({ _id: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      Consumer.find().sort({ _id: -1 }).skip(skip).limit(limit).lean(),
       Consumer.countDocuments(),
     ]);
 

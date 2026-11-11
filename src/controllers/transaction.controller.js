@@ -75,11 +75,7 @@ const getAllTransaction = async (req, res) => {
     }
 
     const [allTransactions, total] = await Promise.all([
-      Transaction.find()
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      Transaction.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Transaction.countDocuments(),
     ]);
 
