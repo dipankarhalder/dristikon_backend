@@ -5,12 +5,21 @@
   "license": "MIT",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
+    "dev": "nodemon src/index.js || node --watch src/index.js",
+    "dev:node": "node --watch src/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "seed": "node src/scripts/seed.js",
-    "test:security": "node src/scripts/verify-security.js"
+    "test:security": "node src/scripts/verify-security.js",
+    "security-check": "node src/scripts/security-check.js",
+    "test": "node src/scripts/verify-security.js && node src/scripts/test-upload.js && node src/scripts/test-scale-architecture.js",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:watch": "docker compose up --watch",
+    "docker:logs": "docker compose logs -f backend",
+    "docker:seed": "docker compose exec backend npm run seed",
+    "prepare": "husky"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -26,8 +35,11 @@
     "ioredis": "^6.0.0",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
+    "kafkajs": "^2.2.4",
     "mongoose": "^8.9.5",
     "morgan": "^1.10.0",
+    "multer": "^2.5.0",
+    "nodemon": "^3.1.14",
     "rate-limit-redis": "^6.0.2",
     "winston": "^3.19.0"
   },
@@ -37,6 +49,7 @@
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.3",
     "globals": "^15.14.0",
+    "husky": "^9.1.7",
     "prettier": "^3.4.2"
   }
 }

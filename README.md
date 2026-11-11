@@ -22,6 +22,24 @@ High-performance, secure, and scalable Node.js, Express, MongoDB, and Redis back
   - **Account Lockout Protection**: Automatically locks accounts for 15 minutes after 5 consecutive failed sign-in attempts.
   - **Token Blacklisting**: Immediate revocation of access tokens in Redis upon signout.
   - **Production Fail-Fast Secret Validation**: Startup crashes if production environment uses default development secrets.
+- **⚡ Native Process Clustering**:
+  - Utilizes Node.js native `cluster` module to auto-fork worker processes matching host CPU core count.
+  - Primary master process monitors worker health and automatically respawns replacements upon unexpected exits.
+  - Zero-downtime rolling terminations forwarding shutdown signals to child workers.
+- **🚀 High-Performance Caching & Queues (10M Users scale)**:
+  - **Redis Read-Through Caching**: Implemented `getOrSet()` caching pattern with randomized TTL jitter offsets to prevent cache stampede / thundering herd under massive concurrent load.
+  - **Kafka Asynchronous Queue Broker**: Heavy write workloads (e.g. broadcast notifications) offloaded to background Kafka consumer workers.
+  - **Constant Memory Cursor Streams**: Uses MongoDB Cursor Streams (`cursor()`) processed in chunks of 1,000 users to maintain constant O(1) memory boundaries even with 10M+ users.
+- **☸️ Kubernetes Deployment Orchestration (`deploy/k8s/`)**:
+  - **Autoscaling (HPA)**: Horizontal Pod Autoscaler scaling application instances dynamically up to 10 replicas when CPU usage exceeds 70%.
+  - **Credential Separation**: Sensitive secrets and non-sensitive configurations cleanly decoupled into Kubernetes Secrets and ConfigMaps.
+  - **Persistence (PVC)**: Allocates Persistent Volume Claims for Redis state (`redis-data-pvc`), Kafka logs (`kafka-data-pvc`), and uploaded files (`uploads-data-pvc`).
+  - **Ingress Routing**: Production Ingress manifest configured with TLS termination and automated HTTP-to-HTTPS SSL redirects.
+- **⚓ Git Hook Validations (Husky Hooks)**:
+  - **Pre-commit Checks**: Runs `npm run security-check` (verifying production dependency safety and code-level security controls) before a commit is saved.
+  - **Pre-push Checks**: Runs all tests (`npm test`) before pushing code to the remote repository.
+  - **Commit-msg Validation**: Validates that commit messages follow `<prefix>(optional-scope): <description>`.
+    - Allowed Prefixes: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `hotfix`, `err`, `revert`.
 - **🚀 High Throughput & Low Latency**:
   - `compression` middleware with automatic Gzip/Brotli payload compression.
   - `.lean()` unhydrated Mongoose queries for 3x–5x read acceleration.
@@ -37,25 +55,44 @@ High-performance, secure, and scalable Node.js, Express, MongoDB, and Redis back
 
 ---
 
-## 🚀 Getting Started with Docker
+## 🚀 Getting Started with Docker (Auto-Deploy & Hot Reload)
 
 ### Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
 
-### 1. Start All Services (Backend + MongoDB + Redis)
+### Option A: One-Command Auto-Deploy Script
 
-From the project root or `dristikon_backend` directory, run:
+From `dristikon_backend/`:
 
 ```bash
-docker compose up -d --build
+./scripts/docker-deploy.sh --logs
+```
+
+This builds and launches MongoDB, Redis, Kafka, Zookeeper, and the Backend, waits for health checks to pass, and streams logs.
+
+### Option B: Docker Compose Watch (Official Auto-Sync & Rebuild)
+
+Runs the cluster and activates Docker Compose Watch to auto-sync source edits into the container and auto-rebuild if `package.json` changes:
+
+```bash
+npm run docker:watch
+# or: docker compose up --watch
+```
+
+### Option C: Standard Background Up
+
+```bash
+npm run docker:up
+# or: docker compose up -d --build
 ```
 
 This starts:
 
+- **Backend API** on `http://localhost:4000` (with live nodemon hot reload on any file save)
 - **MongoDB** on `localhost:27017` (with persistent volume `mongo_data`)
 - **Redis** on `localhost:6381` (with persistent volume `redis_data`)
-- **Backend API** on `http://localhost:4000` (with live code reloading on edits)
+- **Apache Kafka** on `localhost:9092` (Official Apache image in native KRaft mode, zero ZooKeeper required)
 
 ### 2. Check Service Status
 

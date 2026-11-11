@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dristikon
+  labels:
+    app.kubernetes.io/name: dristikon
+    app.kubernetes.io/part-of: dristikon-crm

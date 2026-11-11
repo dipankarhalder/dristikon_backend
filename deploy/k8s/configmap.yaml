@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dristikon-backend-config
+  namespace: dristikon
+data:
+  PORT: '4000'
+  NODEENV: 'production'
+  PLATFORM: 'production'
+  CLIENTURL: 'https://dristikon.com'
+  REDIS_HOST: 'redis-service'
+  REDIS_PORT: '6379'
+  ENABLE_CLUSTER: 'true'
+  KAFKA_BROKERS: 'kafka-service:9092'
+  KAFKA_CLIENT_ID: 'dristikon-backend-k8s'
+  KAFKA_GROUP_ID: 'dristikon-notification-group'

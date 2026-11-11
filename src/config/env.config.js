@@ -42,4 +42,8 @@ module.exports = {
   REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
   NODEENV: isProduction,
   CLIENTURL: process.env.CLIENTURL || 'http://localhost:5173',
+  ENABLE_CLUSTER: process.env.ENABLE_CLUSTER === 'true',
+  KAFKA_BROKERS: process.env.KAFKA_BROKERS || '',
+  KAFKA_CLIENT_ID: process.env.KAFKA_CLIENT_ID || 'dristikon-backend',
+  KAFKA_GROUP_ID: process.env.KAFKA_GROUP_ID || 'dristikon-notification-group',
 };

@@ -38,6 +38,15 @@ const endPoints = {
   newTransaction: '/transaction/new',
   listTransactions: '/transaction/list',
   transactionItem: '/transaction/:id',
+
+  /* file upload */
+  uploadFile: '/upload',
+  uploadMultipleFiles: '/upload/multiple',
+  deleteFile: '/upload/:filename',
+
+  /* notifications (Kafka Async Queue) */
+  broadcastNotification: '/notification/broadcast',
+  listNotifications: '/notification/list',
 };
 
 module.exports = {
