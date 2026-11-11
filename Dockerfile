@@ -6,17 +6,20 @@ WORKDIR /usr/src/app
 # Install curl for health checking
 RUN apk add --no-cache curl
 
-# Copy dependency definitions
-COPY package*.json ./
+# Copy dependency definitions and tsconfig
+COPY package*.json tsconfig.json ./
 
-# Install nodemon globally for robust hot reloading in containers
-RUN npm install -g nodemon
+# Install tsx and nodemon globally for robust TypeScript hot reloading in containers
+RUN npm install -g tsx nodemon
 
-# Install dependencies (including nodemon and production packages)
+# Install all dependencies
 RUN npm install
 
 # Copy application source and configuration files
 COPY . .
+
+# Build TypeScript to dist
+RUN npm run build
 
 # Ensure upload asset directories exist
 RUN mkdir -p uploads/images uploads/documents
@@ -28,5 +31,5 @@ ENV NODE_ENV=development \
 # Expose backend port
 EXPOSE 4000
 
-# Default start command for hot reloading
+# Default start command for TypeScript hot reloading
 CMD ["npm", "run", "dev"]

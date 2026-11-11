@@ -5,3 +5,7 @@
 # Uploaded assets
 uploads/*
 !uploads/**/.gitkeep
+
+# TypeScript build output
+dist/
+*.tsbuildinfo
