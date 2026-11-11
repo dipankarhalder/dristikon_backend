@@ -59,11 +59,7 @@ const listCategories = async (req, res) => {
     }
 
     const [categories, total] = await Promise.all([
-      Category.find()
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      Category.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Category.countDocuments(),
     ]);
 

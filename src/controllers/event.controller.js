@@ -49,11 +49,7 @@ const getAllEvents = async (req, res) => {
     }
 
     const [allEvents, total] = await Promise.all([
-      Event.find()
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      Event.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Event.countDocuments(),
     ]);
 

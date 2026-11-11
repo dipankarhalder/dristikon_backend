@@ -26,7 +26,7 @@ if (envConfig.REDIS_HOST) {
       console.log('Connected to Redis cache server.');
     });
 
-    redisClient.on('error', (err) => {
+    redisClient.on('error', () => {
       isConnected = false;
       // Do not throw or spam logs on connection drops
     });
@@ -38,7 +38,7 @@ if (envConfig.REDIS_HOST) {
     redisClient.connect().catch(() => {
       // Gracefully handled; cache will bypass safely
     });
-  } catch (err) {
+  } catch {
     redisClient = null;
     isConnected = false;
   }
@@ -52,7 +52,7 @@ const get = async (key) => {
   try {
     const data = await redisClient.get(key);
     return data ? JSON.parse(data) : null;
-  } catch (err) {
+  } catch {
     return null;
   }
 };
@@ -64,7 +64,7 @@ const set = async (key, value, ttlSeconds = 120) => {
   if (!isConnected || !redisClient) return;
   try {
     await redisClient.set(key, JSON.stringify(value), 'EX', ttlSeconds);
-  } catch (err) {
+  } catch {
     // Fail silently, don't impact primary flow
   }
 };
@@ -79,7 +79,7 @@ const delPattern = async (pattern) => {
     if (keys.length > 0) {
       await redisClient.del(keys);
     }
-  } catch (err) {
+  } catch {
     // Fail silently
   }
 };
@@ -92,15 +92,20 @@ const close = async () => {
     try {
       await redisClient.quit();
       console.log('Redis connection cleanly closed.');
-    } catch (err) {
+    } catch {
       // Ignored
     }
   }
 };
+
+const getClient = () => redisClient;
+const isRedisConnected = () => isConnected;
 
 module.exports = {
   get,
   set,
   delPattern,
   close,
+  getClient,
+  isRedisConnected,
 };

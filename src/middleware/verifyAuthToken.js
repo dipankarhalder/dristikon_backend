@@ -2,8 +2,9 @@ const { StatusCodes } = require('http-status-codes');
 const jwt = require('jsonwebtoken');
 const { envConfig } = require('../config');
 const { msg } = require('../constant');
+const { isTokenBlacklisted } = require('../utils/security');
 
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   try {
     let token = null;
 
@@ -25,6 +26,15 @@ const verifyToken = (req, res, next) => {
       });
     }
 
+    // Check if access token has been revoked / blacklisted
+    const revoked = await isTokenBlacklisted(token);
+    if (revoked) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: StatusCodes.UNAUTHORIZED,
+        message: 'Token has been revoked. Please sign in again.',
+      });
+    }
+
     let decoded;
     try {
       decoded = jwt.verify(token, envConfig.ACCESS_TOKEN_SECRET);
@@ -38,12 +48,13 @@ const verifyToken = (req, res, next) => {
     }
 
     req.user = decoded;
+    req.rawToken = token;
     next();
   } catch (error) {
     return res.status(StatusCodes.UNAUTHORIZED).json({
       status: StatusCodes.UNAUTHORIZED,
       message: msg.userMsg.invalidToken,
-      error: error.message,
+      error: envConfig.NODEENV ? undefined : error.message,
     });
   }
 };
