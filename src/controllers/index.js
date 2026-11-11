@@ -5,6 +5,8 @@ const { createCategory, getCategory, listCategories, deleteCategory } = require(
 const { createConsumer, listConsumers, editConsumer, getConsumer, deleteConsumer } = require('./consumer.controller');
 const { createTransaction, getAllTransaction, getTransaction } = require('./transaction.controller');
 const { createEvent, getAllEvents, getEvent } = require('./event.controller');
+const { uploadSingle, uploadMultiple, deleteFile } = require('./upload.controller');
+const { queueBroadcastNotification, getNotifications } = require('./notification.controller');
 
 module.exports = {
   health: {
@@ -45,5 +47,14 @@ module.exports = {
     createEvent,
     getAllEvents,
     getEvent,
+  },
+  uploadServices: {
+    uploadSingle,
+    uploadMultiple,
+    deleteFile,
+  },
+  notificationServices: {
+    queueBroadcastNotification,
+    getNotifications,
   },
 };

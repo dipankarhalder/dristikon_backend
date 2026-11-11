@@ -23,13 +23,19 @@ mongoose.connection.on('disconnected', () => {
   console.warn('MongoDB disconnected. Attempting to reconnect...');
 });
 
-const dbConnect = async () => {
-  try {
-    const connect = await mongoose.connect(MONGOURI, mongooseOptions);
-    return connect;
-  } catch (err) {
-    console.error(`${msg.dbMsg.dbFailed} ${err.message}`);
-    process.exit(1);
+const dbConnect = async (retries = 5, delayMs = 2000) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const connect = await mongoose.connect(MONGOURI, mongooseOptions);
+      return connect;
+    } catch (err) {
+      console.error(`${msg.dbMsg.dbFailed} (Attempt ${attempt}/${retries}): ${err.message}`);
+      if (attempt === retries) {
+        process.exit(1);
+      }
+      console.log(`Retrying MongoDB connection in ${delayMs / 1000}s...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
   }
 };
 

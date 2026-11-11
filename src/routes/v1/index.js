@@ -2,11 +2,22 @@ const express = require('express');
 const router = express.Router();
 
 const { routers } = require('../../constant');
-const { health, auth, profile, categoryServices, consumer, transactionServices, eventServices } = require('../../controllers');
+const {
+  health,
+  auth,
+  profile,
+  categoryServices,
+  consumer,
+  transactionServices,
+  eventServices,
+  uploadServices,
+  notificationServices,
+} = require('../../controllers');
 const verifyToken = require('../../middleware/verifyAuthToken');
 const validateObjectId = require('../../middleware/validateObjectId');
 const authorizeRole = require('../../middleware/authorizeRole');
 const { mutationLimiter } = require('../../middleware/rateLimiter');
+const { uploadSingle, uploadMultiple } = require('../../middleware/fileUpload');
 
 /* health check */
 router.get(routers.endPoints.health, health.getHealth);
@@ -60,6 +71,27 @@ router.get(routers.endPoints.transactionItem, verifyToken, validateObjectId('id'
 router.post(routers.endPoints.newEvent, verifyToken, mutationLimiter, eventServices.createEvent);
 router.get(routers.endPoints.listEvents, verifyToken, eventServices.getAllEvents);
 router.get(routers.endPoints.eventItem, verifyToken, validateObjectId('id'), eventServices.getEvent);
+
+/* file upload */
+router.post(routers.endPoints.uploadFile, verifyToken, mutationLimiter, uploadSingle, uploadServices.uploadSingle);
+router.post(routers.endPoints.uploadMultipleFiles, verifyToken, mutationLimiter, uploadMultiple, uploadServices.uploadMultiple);
+router.delete(
+  routers.endPoints.deleteFile,
+  verifyToken,
+  authorizeRole('super_admin', 'collaborator'),
+  mutationLimiter,
+  uploadServices.deleteFile,
+);
+
+/* notifications (Kafka Async Queue) */
+router.post(
+  routers.endPoints.broadcastNotification,
+  verifyToken,
+  authorizeRole('super_admin'),
+  mutationLimiter,
+  notificationServices.queueBroadcastNotification,
+);
+router.get(routers.endPoints.listNotifications, verifyToken, notificationServices.getNotifications);
 
 module.exports = {
   v1Routes: router,

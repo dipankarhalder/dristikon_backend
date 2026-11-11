@@ -1,4 +1,7 @@
 const express = require('express');
+const cluster = require('cluster');
+const os = require('os');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const hpp = require('hpp');
@@ -13,6 +16,7 @@ const { RootApiRouter } = require('./routes');
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
 const { nosqlSanitizer } = require('./middleware/nosqlSanitizer');
 const { cache, logger } = require('./utils');
+const { initKafka, closeKafka } = require('./queue/kafka');
 
 /* initialize express app */
 const app = express();
@@ -52,6 +56,16 @@ app.use(hpp());
 app.use(nosqlSanitizer);
 
 app.use(cookieParser());
+
+/* serve uploaded files (images, docs, pdfs) statically with secure settings */
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '../uploads'), {
+    dotfiles: 'ignore',
+    etag: true,
+    maxAge: '1d',
+  }),
+);
 
 /* apply strict distributed rate limiting to sensitive auth endpoints */
 app.use(`${routers.endPoints.base}${routers.endPoints.v1Base}/auth/signin`, authLimiter);
@@ -110,40 +124,78 @@ app.use((error, req, res, next) => {
   });
 });
 
-/* connect database and start server */
-let server;
+/* ⚡ Native Process Clustering & Server Initialization */
+const numCPUs = os.cpus().length;
+const isClusteringEnabled = envConfig.ENABLE_CLUSTER || (envConfig.NODEENV && process.env.ENABLE_CLUSTER !== 'false');
 
-dbConfig
-  .dbConnect()
-  .then(() => {
-    server = app.listen(envConfig.PORT, () => {
-      logger.info(`${msg.server.serveSuccess} ${envConfig.PORT}`);
-    });
-  })
-  .catch((err) => {
-    logger.error(`${msg.dbMsg.dbFailed}:`, { error: err.message });
-    process.exit(1);
+if (isClusteringEnabled && cluster.isPrimary) {
+  logger.info(`⚡ Primary Master process ${process.pid} is running. Auto-forking ${numCPUs} worker processes...`);
+
+  // Auto-fork worker processes matching CPU core count
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
+
+  // Auto-respawn replacement worker on unexpected termination
+  cluster.on('exit', (worker, code, signal) => {
+    logger.warn(`Worker ${worker.process.pid} died (code: ${code}, signal: ${signal}). Auto-respawning replacement worker...`);
+    cluster.fork();
   });
 
-/* graceful shutdown handler */
-const gracefulShutdown = async (signal) => {
-  logger.info(`Received ${signal}. Starting graceful shutdown...`);
-  if (server) {
-    server.close(async () => {
-      logger.info('HTTP server closed.');
-      await dbConfig.dbDisconnect();
-      await cache.close();
-      process.exit(0);
+  // Graceful shutdown forwarding to all child workers
+  const handleMasterShutdown = (signal) => {
+    logger.info(`Master process received ${signal}. Gracefully stopping all worker processes...`);
+    for (const id in cluster.workers) {
+      if (cluster.workers[id]) {
+        cluster.workers[id].process.kill(signal);
+      }
+    }
+  };
+
+  process.on('SIGTERM', () => handleMasterShutdown('SIGTERM'));
+  process.on('SIGINT', () => handleMasterShutdown('SIGINT'));
+} else {
+  /* Worker process (or single process in development) */
+  let server;
+
+  dbConfig
+    .dbConnect()
+    .then(async () => {
+      // Initialize Kafka message broker (with graceful in-process fallback)
+      await initKafka();
+
+      server = app.listen(envConfig.PORT, () => {
+        logger.info(`${msg.server.serveSuccess} ${envConfig.PORT} (Worker PID: ${process.pid})`);
+      });
+    })
+    .catch((err) => {
+      logger.error(`${msg.dbMsg.dbFailed}:`, { error: err.message });
+      process.exit(1);
     });
 
-    setTimeout(() => {
-      logger.error('Graceful shutdown timed out, forcing exit.');
-      process.exit(1);
-    }, 10000);
-  } else {
-    process.exit(0);
-  }
-};
+  /* graceful shutdown handler */
+  const gracefulShutdown = async (signal) => {
+    logger.info(`Worker ${process.pid} received ${signal}. Starting graceful shutdown...`);
+    if (server) {
+      server.close(async () => {
+        logger.info(`Worker ${process.pid} HTTP server closed.`);
+        await dbConfig.dbDisconnect();
+        await cache.close();
+        await closeKafka();
+        process.exit(0);
+      });
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+      setTimeout(() => {
+        logger.error(`Worker ${process.pid} graceful shutdown timed out, forcing exit.`);
+        process.exit(1);
+      }, 10000);
+    } else {
+      process.exit(0);
+    }
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}
+
+module.exports = app;

@@ -70,6 +70,31 @@ const set = async (key, value, ttlSeconds = 120) => {
 };
 
 /**
+ * Read-Through Caching Pattern with Randomized TTL Jitter Offset
+ * Prevents Cache Stampede / Thundering Herd under massive concurrent load (10M scale).
+ *
+ * @param {string} key Cache key
+ * @param {Function} fetchFn Asynchronous fallback function returning fresh data
+ * @param {Object} options Configuration options
+ * @param {number} options.ttlSeconds Base TTL in seconds (default: 120s)
+ * @param {number} options.jitterRange Maximum random seconds added to TTL (default: 30s)
+ */
+const getOrSet = async (key, fetchFn, { ttlSeconds = 120, jitterRange = 30 } = {}) => {
+  const cached = await get(key);
+  if (cached !== null) {
+    return cached;
+  }
+
+  const freshData = await fetchFn();
+  if (freshData !== undefined && freshData !== null) {
+    const jitter = Math.floor(Math.random() * jitterRange);
+    const effectiveTTL = ttlSeconds + jitter;
+    await set(key, freshData, effectiveTTL);
+  }
+  return freshData;
+};
+
+/**
  * Invalidate cache by key pattern
  */
 const delPattern = async (pattern) => {
@@ -104,6 +129,7 @@ const isRedisConnected = () => isConnected;
 module.exports = {
   get,
   set,
+  getOrSet,
   delPattern,
   close,
   getClient,

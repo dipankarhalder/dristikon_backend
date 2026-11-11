@@ -87,6 +87,18 @@ const transactionMsg = {
   amountExceeds: 'Paid amount cannot exceed the pending event balance.',
 };
 
+const uploadMsg = {
+  fileUploaded: 'File uploaded successfully.',
+  filesUploaded: 'Files uploaded successfully.',
+  fileDeleted: 'File deleted successfully.',
+  noFileProvided: 'Please select a file to upload.',
+  fileNotFound: 'Requested file not found.',
+  invalidFileType:
+    'Invalid file type. Allowed: images (JPG, PNG, WEBP, GIF, SVG), PDFs, and docs (DOC, DOCX, TXT, CSV, XLS, XLSX).',
+  fileSizeExceeded: 'File size exceeds maximum allowed limit (15MB).',
+  invalidFilename: 'Invalid filename provided.',
+};
+
 module.exports = {
   server,
   dbMsg,
@@ -97,4 +109,5 @@ module.exports = {
   consumerMsg,
   eventMsg,
   transactionMsg,
+  uploadMsg,
 };

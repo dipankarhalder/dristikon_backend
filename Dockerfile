@@ -9,11 +9,17 @@ RUN apk add --no-cache curl
 # Copy dependency definitions
 COPY package*.json ./
 
-# Install dependencies
+# Install nodemon globally for robust hot reloading in containers
+RUN npm install -g nodemon
+
+# Install dependencies (including nodemon and production packages)
 RUN npm install
 
-# Copy application source
+# Copy application source and configuration files
 COPY . .
+
+# Ensure upload asset directories exist
+RUN mkdir -p uploads/images uploads/documents
 
 # Set default environment variables
 ENV NODE_ENV=development \
@@ -22,5 +28,5 @@ ENV NODE_ENV=development \
 # Expose backend port
 EXPOSE 4000
 
-# Default start command
-CMD ["npm", "start"]
+# Default start command for hot reloading
+CMD ["npm", "run", "dev"]
