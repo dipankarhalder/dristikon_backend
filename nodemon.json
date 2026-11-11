@@ -1,9 +1,9 @@
 {
   "watch": ["src"],
-  "ext": "js,json",
-  "ignore": ["uploads/*", "node_modules/*", ".git/*", ".husky/*"],
+  "ext": "ts,js,json",
+  "ignore": ["uploads/*", "node_modules/*", ".git/*", ".husky/*", "dist/*"],
   "legacyWatch": true,
   "pollingInterval": 250,
   "delay": 150,
-  "exec": "node src/index.js"
+  "exec": "tsx src/index.ts"
 }

@@ -81,6 +81,7 @@ services:
       - ./src:/usr/src/app/src
       - ./uploads:/usr/src/app/uploads
       - ./nodemon.json:/usr/src/app/nodemon.json
+      - ./tsconfig.json:/usr/src/app/tsconfig.json
     # Docker Compose Watch: Auto-sync on file change & auto-rebuild on dependency updates
     develop:
       watch:
@@ -90,10 +91,15 @@ services:
         - action: sync
           path: ./nodemon.json
           target: /usr/src/app/nodemon.json
+        - action: sync
+          path: ./tsconfig.json
+          target: /usr/src/app/tsconfig.json
         - action: rebuild
           path: ./package.json
         - action: rebuild
           path: ./package-lock.json
+        - action: rebuild
+          path: ./tsconfig.json
     command: npm run dev
     depends_on:
       mongo:
